@@ -474,7 +474,7 @@
                 navigator.geolocation.getCurrentPosition(
                     (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
                     (err) => reject(new Error("無法讀取您的精確 GPS 定位。請檢查權限設定。")),
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                    { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
                 );
             });
         }
