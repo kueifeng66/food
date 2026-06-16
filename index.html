@@ -334,7 +334,7 @@
     <!-- JavaScript Application Control Layer -->
     <script>
         // Set Runtime API Keys safely
-        const apiKey = ""; // Runtime-provided Gemini Key
+        const apiKey = "AIzaSyCqevwCGn_90sQ3N_vcTqXOY3qdCr6xRZo"; // Runtime-provided Gemini Key
         const geoapifyKey = 'efaee85ad160471a8dfb47722d2bea47'; // Free OSM search key
         const pexelsKey = "DWkHj5We5u2UU9gRN8bdGPDAeROxNBMVvJxHpStfjlPXxERJ8u9raXYj";
         // App States
@@ -724,7 +724,7 @@
                 systemInstruction: {
                     parts: [{ text: "You are a local food search assistant in Taiwan. You use Google Search tools to query actual ratings, authentic review statistics, and real signature dishes for restaurants. You must always output syntactically correct JSON in Traditional Chinese." }]
                 },
-                tools: [{ "google_search": {} }],
+                //tools: [{ "google_search": {} }],
                 generationConfig: {
                     responseMimeType: "application/json"
                 }
@@ -736,7 +736,7 @@
 
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -749,6 +749,10 @@
                             responseData = JSON.parse(text);
                             break;
                         }
+                    }else {
+                        // 新增這段可以幫你抓出確切的 API 錯誤原因
+                        const errorText = await res.text();
+                        console.error(`Gemini API 請求失敗 (狀態碼 ${res.status}):`, errorText);
                     }
                 } catch (e) {
                     console.error("Retrying details search...", e);
