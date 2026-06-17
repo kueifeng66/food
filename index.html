@@ -698,91 +698,81 @@
             fetchGroundedRestaurantDetails(item);
         }
 
-        // Live Real-Time Web Search & Grounding via Gemini 2.5 Flash
         async function fetchGroundedRestaurantDetails(restaurant) {
-            // Pick a good default fallback image immediately using the new robust Chinese-friendly category engine!
-            const categoryKey = getCategoryKey(restaurant.cuisine + " " + restaurant.name);
-            const unsplashFallbackUrl = premiumFallbacks[categoryKey] || premiumFallbacks.generic;
+    // Pick a good default fallback image immediately using the new robust Chinese-friendly category engine!
+    const categoryKey = getCategoryKey(restaurant.cuisine + " " + restaurant.name);
+    const unsplashFallbackUrl = premiumFallbacks[categoryKey] || premiumFallbacks.generic;
 
-            const promptText = `Perform a live search for the establishment '${restaurant.name}' near ${restaurant.address}. 
-            Specifically discover:
-            1. Its actual current rating on Google Maps / OpenStreet (e.g., 4.5)
-            2. The number of Google/Yelp reviews it has (e.g., "342 reviews")
-            3. Three of its real popular signature dishes or menu options in Traditional Chinese.
-            4. A brief 1-sentence analytical summary in Traditional Chinese detailing why people love it.
+    // 將所有對 Gemini 的需求組裝成一個純文字的 Prompt，交給後端處理
+    const promptText = `Perform a live search for the establishment '${restaurant.name}' near ${restaurant.address}. 
+    Specifically discover:
+    1. Its actual current rating on Google Maps / OpenStreet (e.g., 4.5)
+    2. The number of Google/Yelp reviews it has (e.g., "342 reviews")
+    3. Three of its real popular signature dishes or menu options in Traditional Chinese.
+    4. A brief 1-sentence analytical summary in Traditional Chinese detailing why people love it.
 
-            Respond ONLY with a valid JSON object matching this exact format:
-            {
-              "rating": 4.6,
-              "reviewsCount": "890 則評論",
-              "popularDishes": ["招牌小籠包", "金牌紅燒牛肉麵", "手工蔥油餅"],
-              "summary": "這家餐館以其手工現包、湯汁滿溢的小籠包聞名，環境明亮乾淨，深受在地居民喜愛。"
-            }`;
+    Respond ONLY with a valid JSON object matching this exact format:
+    {
+      "rating": 4.6,
+      "reviewsCount": "890 則評論",
+      "popularDishes": ["招牌小籠包", "金牌紅燒牛肉麵", "手工蔥油餅"],
+      "summary": "這家餐館以其手工現包、湯汁滿溢的小籠包聞名，環境明亮乾淨，深受在地居民喜愛。"
+    }`;
 
-            const payload = {
-                contents: [{ parts: [{ text: promptText }] }],
-                systemInstruction: {
-                    parts: [{ text: "You are a local food search assistant in Taiwan. You use Google Search tools to query actual ratings, authentic review statistics, and real signature dishes for restaurants. You must always output syntactically correct JSON in Traditional Chinese." }]
+    const maxRetries = 3;
+    let currentDelay = 1000;
+    let responseData = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            // 改為請求你自己的 Vercel 後端安全節點
+            const res = await fetch(`https://food-backend-flax.vercel.app/api/generate`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json' 
                 },
-                //tools: [{ "google_search": {} }],
-                generationConfig: {
-                    responseMimeType: "application/json"
+                // 僅傳送一個乾淨的 { prompt: promptText }，不再暴露 API 結構
+                body: JSON.stringify({ prompt: promptText })
+            });
+
+            if (res.ok) {
+                const result = await res.json();
+                
+                // 檢查從 Vercel 後端傳回來的資料是否包含文字內容
+                if (result && result.text) {
+                    // 解析後端傳回的 Gemini JSON 字串
+                    responseData = JSON.parse(result.text);
+                    break;
                 }
-            };
-
-            const maxRetries = 3;
-            let currentDelay = 1000;
-            let responseData = null;
-
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                try {
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (res.ok) {
-                        const result = await res.json();
-                        const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                        if (text) {
-                            responseData = JSON.parse(text);
-                            break;
-                        }
-                    }else {
-                        // 新增這段可以幫你抓出確切的 API 錯誤原因
-                        const errorText = await res.text();
-                        console.error(`Gemini API 請求失敗 (狀態碼 ${res.status}):`, errorText);
-                    }
-                } catch (e) {
-                    console.error("Retrying details search...", e);
-                }
-                await new Promise(r => setTimeout(r, currentDelay));
-                currentDelay *= 1.5;
+            } else {
+                const errorText = await res.text();
+                console.error(`Vercel Backend 請求失敗 (狀態碼 ${res.status}):`, errorText);
             }
-
-            // Standard fallback metadata if Gemini call fails completely
-            if (!responseData) {
-                responseData = {
-                    rating: (4.0 + Math.random() * 0.9).toFixed(1),
-                    reviewsCount: `${Math.floor(Math.random() * 200 + 30)} 則地圖評分`,
-                    popularDishes: ["主廚推薦精選", "主廚特製小點", "限定鮮泡冷泡茶"],
-                    summary: `充滿在地氛圍的人氣美食據點，大眾評價具有穩定的服務品質與富含溫度的特色風味料理。`
-                };
-            }
-
-            // Apply standard metadata
-            applyGroundedUI(responseData);
-
-            
-            loadPexelsPhoto(restaurant, categoryKey, unsplashFallbackUrl);
+        } catch (e) {
+            console.error(`Retrying details search... (Attempt ${attempt})`, e);
         }
+        
+        // 錯誤時的指數型延遲重試機制
+        await new Promise(r => setTimeout(r, currentDelay));
+        currentDelay *= 1.5;
+    }
 
-        async function loadPexelsPhoto(
-    restaurant,
-    categoryKey,
-    fallbackUrl
-) {
+    // Standard fallback metadata if Gemini call or Vercel backend fails completely
+    if (!responseData) {
+        responseData = {
+            rating: (4.0 + Math.random() * 0.9).toFixed(1),
+            reviewsCount: `${Math.floor(Math.random() * 200 + 30)} 則地圖評分`,
+            popularDishes: ["主廚推薦精選", "主廚特製小點", "限定鮮泡冷泡茶"],
+            summary: `充滿在地氛圍的人氣美食據點，大眾評價具有穩定的服務品質與富含溫度的特色風味料理。`
+        };
+    }
+
+    // Apply standard metadata (執行你原有的 UI 渲染與相片載入邏輯)
+    applyGroundedUI(responseData);
+    
+    loadPexelsPhoto(restaurant, categoryKey, unsplashFallbackUrl);
+}
+        async function loadPexelsPhoto( restaurant, categoryKey, fallbackUrl) {
 
     const restImg = document.getElementById("rest-image");
     const loaderOverlay =
