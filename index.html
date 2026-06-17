@@ -586,7 +586,7 @@
                 const distText = distanceMeters < 1000 
                     ? `${Math.round(distanceMeters)} 公尺` 
                     : `${(distanceMeters/1000).toFixed(2)} 公里`;
-                const timeText = `步行約 ${Math.round(durationSeconds / 60)*6.67} 分鐘`;
+                const timeText = `步行約 ${Math.round(durationSeconds / 60 * 6.67)} 分鐘`;
 
                 document.getElementById('rest-distance').innerText = `${distText} (${timeText})`;
                 document.getElementById('routing-stats').innerText = `${distText} (${timeText}) 步行路網導航`;
