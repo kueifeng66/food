@@ -692,10 +692,14 @@
             sourceBadge.classList.add('hidden');
 
             // 1. Fetch Routing metrics
-            await updateRoutingPath(item);
-
+            //await updateRoutingPath(item);
+             updateRoutingPath(item);
             // 2. Fetch ground-truth rating metrics, dishes, and image
             fetchGroundedRestaurantDetails(item);
+
+            const categoryKey = getCategoryKey(item.cuisine + " " + item.name);
+            const unsplashFallbackUrl = premiumFallbacks[categoryKey] || premiumFallbacks.generic;
+            loadPexelsPhoto(item, categoryKey, unsplashFallbackUrl);
         }
 
         async function fetchGroundedRestaurantDetails(restaurant) {
@@ -770,7 +774,7 @@
     // Apply standard metadata (執行你原有的 UI 渲染與相片載入邏輯)
     applyGroundedUI(responseData);
     
-    loadPexelsPhoto(restaurant, categoryKey, unsplashFallbackUrl);
+    //loadPexelsPhoto(restaurant, categoryKey, unsplashFallbackUrl);
 }
         async function loadPexelsPhoto( restaurant, categoryKey, fallbackUrl) {
 
